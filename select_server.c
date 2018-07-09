@@ -15,13 +15,18 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	int socket_fd, con_fd, len, ret;
+	int udpsocket_fd, tcpsocket_fd, case_fd, con_fd, len, ret;
 	char buf[16] = {0};
 
-	socket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	udpsocket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	tcpsocket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-	if (socket_fd == -1) {
-		perror("socket");
+	if (udpsocket_fd < 1) {
+		perror("socketudp");
+		return -2;
+	}
+	if (tcpsocket_fd < 1) {
+		perror("sockettcp");
 		return -2;
 	}
 	
@@ -31,28 +36,67 @@ int main(int argc, char **argv)
 	server.sin_family = AF_INET;
 	server.sin_port = htons(atoi(argv[2]));
 	server.sin_addr.s_addr = inet_addr(argv[1]);
-	ret = bind(socket_fd, (struct sockaddr*)&server, server_size);
 
+	ret = bind(udpsocket_fd, (struct sockaddr*)&server, server_size);
 	if (ret == -1) {
-		perror("bind");
+		perror("bindudp");
 		return -3;
 	}
+
+	ret = bind(tcpsocket_fd, (struct sockaddr*)&server, server_size);
+	if (ret == -1) {
+		perror("bindtcp");
+		return -4;
+	}
+
+	fd_set setmask;
+	FD_ZERO(&setmask);
+	FD_SET(tcpsocket_fd, &setmask);
+	FD_SET(udpsocket_fd, &setmask);
+
 	while (1)	{
 		memset(&target, 0, target_size);
-		recvfrom(socket_fd, buf, 16, 0, (struct sockaddr*)&target, &target_size);
-		printf("Connection from %s:%d\n", inet_ntoa(target.sin_addr), ntohs(target.sin_port));
-		buf[11] = buf[5];
-		buf[12] = buf[6];
-		buf[5] = ' ';
-		buf[6] = 'w';
-		buf[7] = 'o';
-		buf[8] = 'r';
-		buf[9] = 'l';
-		buf[10] = 'd';
-		sendto(socket_fd, buf, 16, MSG_CONFIRM, (struct sockaddr*)&target, target_size);
-		printf("Replied\n");
+		case_fd = select((tcpsocket_fd > udpsocket_fd ? tcpsocket_fd : udpsocket_fd) + 1, &setmask, NULL, NULL, NULL);
+		if (!(FD_ISSET(case_fd, &setmask))) continue;
+		if (case_fd == tcpsocket_fd) {
+			con_fd = accept(tcpsocket_fd, (struct sockaddr *) &target, &target_size);
+			printf("TCP connection from %s:%d\n", inet_ntoa(target.sin_addr), ntohs(target.sin_port));
+			recv(con_fd, buf, 16, 0);
+			printf("%s", buf);
+			buf[11] = buf[5];
+			buf[12] = buf[6];
+			buf[5] = ' ';
+			buf[6] = 'w';
+			buf[7] = 'o';
+			buf[8] = 'r';
+			buf[9] = 'l';
+			buf[10] = 'd';
+			send(con_fd, buf, 16, 0);
+			printf("%s", buf);
+			printf("Replied\n");
+			close(con_fd);
+			continue;
+		}
+		if (case_fd == udpsocket_fd) {
+			recvfrom(udpsocket_fd, buf, 16, 0, (struct sockaddr *) &target, &target_size);
+			printf("UDP connection from %s:%d\n", inet_ntoa(target.sin_addr), ntohs(target.sin_port));
+			buf[11] = buf[5];
+			buf[12] = buf[6];
+			buf[5] = ' ';
+			buf[6] = 'w';
+			buf[7] = 'o';
+			buf[8] = 'r';
+			buf[9] = 'l';
+			buf[10] = 'd';
+			sendto(udpsocket_fd, buf, 16, MSG_CONFIRM, (struct sockaddr *) &target, target_size);
+			printf("Replied\n");
+		} else {
+				printf("Undefined socket_fd: %d\n", case_fd);
+		}
+
 	}
-	close(socket_fd);
+	close(udpsocket_fd);
+	close(tcpsocket_fd);
 
 	return 0;
 }
