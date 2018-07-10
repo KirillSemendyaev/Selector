@@ -1,11 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <string.h>
-#include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
 int main(int argc, char **argv)
@@ -31,17 +28,18 @@ int main(int argc, char **argv)
 	target.sin_port = htons(atoi(argv[2]));
 	target.sin_addr.s_addr = inet_addr(argv[1]);
 	target_size = sizeof(target);
-	len = sprintf(buf, "Hello!\n");
-	printf("%s", buf);
+	sprintf(buf, "Hello!");
+	len = sizeof(buf);
+	printf("%s\n", buf);
 
-	ret = sendto(socket_fd, buf, 16, MSG_CONFIRM, (struct sockaddr*)&target, target_size);
+	ret = sendto(socket_fd, buf, len, MSG_CONFIRM, (struct sockaddr*)&target, target_size);
 	if (ret == -1) {
 		perror("send");
 		return -3;
 	}
 
-	ret = recvfrom(socket_fd, buf, 16, 0, (struct sockaddr*)&target, &target_size);
-	printf("%s", buf);
+	ret = recvfrom(socket_fd, buf, len, 0, (struct sockaddr*)&target, &target_size);
+	printf("%s\n", buf);
 
 	close(socket_fd);
 	return 0;

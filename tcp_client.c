@@ -31,26 +31,27 @@ int main(int argc, char **argv)
 	target.sin_port = htons(atoi(argv[2]));
 	target.sin_addr.s_addr = inet_addr(argv[1]);
 	target_size = sizeof(target);
-	len = sprintf(buf, "Hello!\n");
-	printf("%s", buf);
+	sprintf(buf, "Hello!");
+	len = sizeof(buf);
+	printf("%s\n", buf);
 
 	ret = connect(socket_fd, (struct sockaddr*)&target, target_size);
 	if (ret == -1) {
 		perror("connect");
 		return -3;
 	}
-	ret = send(socket_fd, buf, 16, 0);
+	ret = send(socket_fd, buf, len, 0);
 	if (ret < 1) {
 		perror("send");
 		return -4;
 	}
 
-	ret = recv(socket_fd, buf, 16, 0);
+	ret = recv(socket_fd, buf, len, 0);
 	if (ret < 1) {
 		perror("recv");
 		return -5;
 	}
-	printf("%s", buf);
+	printf("%s\n", buf);
 
 	close(socket_fd);
 	return 0;

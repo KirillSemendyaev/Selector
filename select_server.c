@@ -17,7 +17,7 @@ int main(int argc, char **argv)
 
 	int udpsocket_fd, tcpsocket_fd, max_fd, con_fd, len, ret;
 	char buf[16] = {0};
-
+	len = sizeof(buf);
 	udpsocket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	tcpsocket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
@@ -35,8 +35,8 @@ int main(int argc, char **argv)
 	memset(&server, 0, server_size);
 	server.sin_family = AF_INET;
 	server.sin_port = htons(atoi(argv[2]));
-	server.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	//server.sin_addr.s_addr = inet_addr(argv[1]);
+	//server.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	server.sin_addr.s_addr = inet_addr(argv[1]);
 
 	ret = bind(udpsocket_fd, (struct sockaddr*)&server, server_size);
 	if (ret == -1) {
@@ -51,46 +51,33 @@ int main(int argc, char **argv)
 	}
 
 	fd_set setmask;
-
-	listen(tcpsocket_fd, 20);
+	max_fd = tcpsocket_fd > udpsocket_fd ? tcpsocket_fd : udpsocket_fd;
+	listen(tcpsocket_fd, 1);
 	while (1)	{
 		FD_ZERO(&setmask);
 		FD_SET(tcpsocket_fd, &setmask);
 		FD_SET(udpsocket_fd, &setmask);
 		memset(&target, 0, target_size);
-		select((tcpsocket_fd > udpsocket_fd ? tcpsocket_fd : udpsocket_fd) + 1, &setmask, NULL, NULL, NULL);
-		printf("MAX fd = %d\n", tcpsocket_fd > udpsocket_fd ? tcpsocket_fd : udpsocket_fd);
+		select(max_fd + 1, &setmask, NULL, NULL, NULL);
+		printf("MAX fd = %d\n", max_fd);
 		if (FD_ISSET(udpsocket_fd, &setmask)) {
-			recvfrom(udpsocket_fd, buf, 16, 0, (struct sockaddr *) &target, &target_size);
+			recvfrom(udpsocket_fd, buf, len, 0, (struct sockaddr *) &target, &target_size);
 			printf("UDP connection from %s:%d\n", inet_ntoa(target.sin_addr), ntohs(target.sin_port));
-			buf[11] = buf[5];
-			buf[12] = buf[6];
-			buf[5] = ' ';
-			buf[6] = 'w';
-			buf[7] = 'o';
-			buf[8] = 'r';
-			buf[9] = 'l';
-			buf[10] = 'd';
-			sendto(udpsocket_fd, buf, 16, MSG_CONFIRM, (struct sockaddr *) &target, target_size);
+			printf("%s\n", buf);
+			strcpy(buf + 5, " world!");
+			sendto(udpsocket_fd, buf, len, MSG_CONFIRM, (struct sockaddr *) &target, target_size);
+			printf("%s\n", buf);
 			printf("Replied\n");
-		} else {
-			printf("NOT UDP ((((((((((((((((((((((     ");
+			continue;
 		}
 		if (FD_ISSET(tcpsocket_fd, &setmask)) {
 			con_fd = accept(tcpsocket_fd, (struct sockaddr *) &target, &target_size);
 			printf("TCP connection from %s:%d\n", inet_ntoa(target.sin_addr), ntohs(target.sin_port));
-			recv(con_fd, buf, 16, 0);
-			printf("%s", buf);
-			buf[11] = buf[5];
-			buf[12] = buf[6];
-			buf[5] = ' ';
-			buf[6] = 'w';
-			buf[7] = 'o';
-			buf[8] = 'r';
-			buf[9] = 'l';
-			buf[10] = 'd';
-			send(con_fd, buf, 16, 0);
-			printf("%s", buf);
+			recv(con_fd, buf, len, 0);
+			printf("%s\n", buf);
+			strcpy(buf + 5, " world!");
+			send(con_fd, buf, len, 0);
+			printf("%s\n", buf);
 			printf("Replied\n");
 			close(con_fd);
 		} else {
